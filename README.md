@@ -8,6 +8,8 @@
 
 This Assemblyline service tries to deobfuscate .Net dlls.
 
+This service could be merged into dotnet-decompiler, but there are some techniques to mislead deobfuscation tools, so we'll keep the two separate to offer as much information to the user in the end.
+
 ## Image variants and tags
 
 Assemblyline services are built from the [Assemblyline service base image](https://hub.docker.com/r/cccs/assemblyline-v4-service-base),
@@ -43,6 +45,8 @@ General Assemblyline documentation can be found at: https://cybercentrecanada.gi
 # Service DotnetDeobfuscator
 
 Ce service d'Assemblyline tente de déobfusquer les dlls .NET.
+
+Ce service pourrait être ajouté dans dotnet-decompiler, mais certains outils servent à induire les outils de désobfusquation en erreur. Il a donc été décidé de garder les deux séparés afin d'avoir le plus d'informations à offrir à l'utilisateur final.
 
 ## Variantes et étiquettes d'image
 

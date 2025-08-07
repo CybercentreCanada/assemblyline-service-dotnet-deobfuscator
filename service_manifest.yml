@@ -3,8 +3,8 @@ version: $SERVICE_TAG
 description: This Assemblyline service tries to deobfuscate .Net dlls.
 
 # Regex defining the types of files the service accepts and rejects
-accepts: .*
-rejects: empty
+accepts: executable/windows/.*
+rejects: empty|executable/windows/dos
 
 # At which stage the service should run (one of FILTER, EXTRACT, CORE, SECONDARY, POST, REVIEW)
 # NOTE: Stages are executed in the order defined in the list
@@ -22,12 +22,12 @@ timeout: 60
 enabled: true
 
 # Service heuristic blocks: List of heuristic objects that define the different heuristics used in the service
-# heuristics:
-#   - description: This is a demo heuristic
-#     filetype: "*"
-#     heur_id: 1
-#     name: Demo
-#     score: 100
+heuristics:
+  - heur_id: 1
+    name: DotNet Obfuscator Found
+    score: 500
+    filetype: executable/windows/
+    description: If at least one obfuscator was detected, there is a high chance that this is an interesting sample.
 
 # Docker configuration block which defines:
 #  - the name of the docker container that will be created
