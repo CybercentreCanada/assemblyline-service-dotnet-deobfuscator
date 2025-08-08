@@ -1,6 +1,7 @@
 """This Assemblyline service tries to deobfuscate .Net dlls."""
 
 import os
+import re
 import subprocess
 
 from assemblyline_v4_service.common.base import ServiceBase
@@ -38,11 +39,37 @@ class DotnetDeobfuscator(ServiceBase):
         if not obfuscators:
             return
 
-        request.result.add_section(
-            ResultSection(
-                "DotNet Obfuscation",
-                body=f"Obfuscator{'s' if len(obfuscators) > 1 else ''} detected: {', '.join(obfuscators)}",
-                heuristic=Heuristic(1),
+        reported_obfuscators = []
+        ignored_obfuscators = []
+        zeroized_obfuscators = self.config.get("zeroized_obfuscators", [])
+        if zeroized_obfuscators:
+            for obfuscator in obfuscators:
+                if any(re.match(x, obfuscator) for x in zeroized_obfuscators):
+                    ignored_obfuscators.append(obfuscator)
+                else:
+                    reported_obfuscators.append(obfuscator)
+        else:
+            reported_obfuscators = obfuscators
+
+        if reported_obfuscators:
+            request.result.add_section(
+                ResultSection(
+                    "DotNet Obfuscation",
+                    body=(
+                        f"Obfuscator{'s' if len(reported_obfuscators) > 1 else ''} "
+                        f"detected: {', '.join(reported_obfuscators)}"
+                    ),
+                    heuristic=Heuristic(1),
+                )
             )
-        )
+        if ignored_obfuscators:
+            request.result.add_section(
+                ResultSection(
+                    "Zeroized DotNet Obfuscation",
+                    body=(
+                        f"Zeroized Obfuscator{'s' if len(ignored_obfuscators) > 1 else ''} "
+                        f"detected: {', '.join(ignored_obfuscators)}"
+                    ),
+                )
+            )
         request.add_extracted(name=f"{request.sha256}.de4dot", description="De4dot result", path=de4dot_output)

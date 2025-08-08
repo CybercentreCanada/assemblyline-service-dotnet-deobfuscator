@@ -10,6 +10,12 @@ This Assemblyline service tries to deobfuscate .Net dlls.
 
 This service could be merged into dotnet-decompiler, but there are some techniques to mislead deobfuscation tools, so we'll keep the two separate to offer as much information to the user in the end.
 
+## Zeroization of certain obfuscators
+
+Since some legitimate software wants to protect their code by using obfuscators non-maliciously, heuristic 1 may raise some false positives.
+
+It is possible to ignore certain obfuscators by adding and appropriate regex to the zeroized_obfuscators (list) values.
+
 ## Image variants and tags
 
 Assemblyline services are built from the [Assemblyline service base image](https://hub.docker.com/r/cccs/assemblyline-v4-service-base),
@@ -48,6 +54,12 @@ Ce service d'Assemblyline tente de déobfusquer les dlls .NET.
 
 Ce service pourrait être ajouté dans dotnet-decompiler, mais certains outils servent à induire les outils de désobfusquation en erreur. Il a donc été décidé de garder les deux séparés afin d'avoir le plus d'informations à offrir à l'utilisateur final.
 
+## Zéroisation de certain obfuscateurs
+
+Certains logiciels tentent de protéger leur code en utilisant des obfuscateurs de manière non malicieuse. Dans ce cas, l'heuristic 1 peut être affichée et causer des faux positifs.
+
+Il est possible d'ignorer certain obfuscateurs en ajouter une regex adaptée à la liste des valeurs de zeroized_obfuscators.
+
 ## Variantes et étiquettes d'image
 
 Les services d'Assemblyline sont construits à partir de l'image de base [Assemblyline service](https://hub.docker.com/r/cccs/assemblyline-v4-service-base),
@@ -79,4 +91,3 @@ Pour ajouter ce service à votre déploiement d'Assemblyline, suivez ceci
 ## Documentation
 
 La documentation générale sur Assemblyline peut être consultée à l'adresse suivante: https://cybercentrecanada.github.io/assemblyline4_docs/
-

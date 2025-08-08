@@ -21,6 +21,9 @@ timeout: 60
 # is the service enabled by default
 enabled: true
 
+config:
+  zeroized_obfuscators: []
+
 # Service heuristic blocks: List of heuristic objects that define the different heuristics used in the service
 heuristics:
   - heur_id: 1
