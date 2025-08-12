@@ -6,7 +6,12 @@ import subprocess
 
 from assemblyline_v4_service.common.base import ServiceBase
 from assemblyline_v4_service.common.request import ServiceRequest
-from assemblyline_v4_service.common.result import Heuristic, Result, ResultSection
+from assemblyline_v4_service.common.result import (
+    Heuristic,
+    Result,
+    ResultKeyValueSection,
+    ResultSection,
+)
 
 
 class DotnetDeobfuscator(ServiceBase):
@@ -14,6 +19,25 @@ class DotnetDeobfuscator(ServiceBase):
 
     def execute(self, request: ServiceRequest):
         request.result = Result()
+
+        popenargs = ["/opt/dotkill/DotKill", request.file_path]
+        p = subprocess.run(popenargs, capture_output=True)
+        if p.returncode == 0:
+            dk_section = ResultKeyValueSection("DotKill result")
+            for line in p.stdout.splitlines():
+                if line.startswith(b"Assembly saved") or b":" not in line:
+                    break
+                k, v = line.split(b":", 1)
+                dk_section.set_item(
+                    k.decode("UTF8", errors="backslashreplace").strip(" ."),
+                    v.decode("UTF8", errors="backslashreplace").strip(),
+                )
+            if dk_section.body:
+                request.result.add_section(dk_section)
+                if os.path.exists(f"{request.file_path}_dotkill"):
+                    request.add_supplementary(
+                        f"{request.file_path}_dotkill", f"{request.file_path}_dotkill", "DotKill deobfuscation"
+                    )
 
         de4dot_output = os.path.join(self.working_directory, "de4dotoutput")
         popenargs = ["/opt/de4dot/de4dot", request.file_path, "-o", de4dot_output]

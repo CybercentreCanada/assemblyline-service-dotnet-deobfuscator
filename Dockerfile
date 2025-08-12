@@ -6,8 +6,15 @@ RUN git clone https://github.com/GDATAAdvancedAnalytics/de4dotEx && \
     cd de4dotEx && \
     dotnet publish -c Release -f net8.0 -o publish-net8.0 --os linux --self-contained de4dot
 
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS dotkill-build
+WORKDIR /dotkill
+RUN git clone https://github.com/CybercentreCanada/DotKill-Unpacker && \
+    cd DotKill-Unpacker && \
+    dotnet publish -c Release -f net8.0 --os linux --self-contained
+
 FROM cccs/assemblyline-v4-service-base:$branch
 COPY --from=de4dot-build /de4dot/de4dotEx/Release/net8.0/linux-x64 /opt/de4dot
+COPY --from=dotkill-build /dotkill/DotKill-Unpacker/DotKill/bin/Release/net8.0/linux-x64/publish /opt/dotkill
 
 # Python path to the service class from your service directory
 ENV SERVICE_PATH=dotnet_deobfuscator.dotnet_deobfuscator.DotnetDeobfuscator
