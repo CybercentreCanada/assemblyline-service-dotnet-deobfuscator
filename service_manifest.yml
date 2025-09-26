@@ -6,6 +6,8 @@ description: This Assemblyline service tries to deobfuscate .Net dlls.
 accepts: executable/windows/.*
 rejects: empty|executable/windows/dos
 
+recursion_prevention: ["DotnetDeobfuscator"]
+
 # At which stage the service should run (one of FILTER, EXTRACT, CORE, SECONDARY, POST, REVIEW)
 # NOTE: Stages are executed in the order defined in the list
 stage: CORE

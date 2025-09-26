@@ -42,7 +42,23 @@ class DotnetDeobfuscator(ServiceBase):
         de4dot_output = os.path.join(self.working_directory, "de4dotoutput")
         popenargs = ["/opt/de4dot/de4dot", request.file_path, "-o", de4dot_output]
         p = subprocess.run(popenargs, capture_output=True)
-        if p.returncode != 0:
+
+        if p.returncode != 0 or (
+            (b"Detected " in p.stdout or b"More than one obfuscator detected" in p.stdout) and
+            b"ERROR: Hmmmm... something didn't work. Try the latest version." in p.stdout):
+
+            stdout_lines = b'\n'.join(p.stdout.splitlines()[-20:]).decode('UTF8', errors='backslashreplace')
+            stderr_lines = b'\n'.join(p.stderr.splitlines()[-80:]).decode('UTF8', errors='backslashreplace')
+
+            request.result.add_section(
+                ResultSection(
+                    "De4dot Error",
+                    body=(
+                        f"{stdout_lines}\n{stderr_lines}"
+                    ),
+                )
+            )
+
             return
 
         obfuscators = set()
@@ -51,8 +67,7 @@ class DotnetDeobfuscator(ServiceBase):
             if line.startswith(b"Detected ") and line.endswith(b")"):
                 # Single obfuscator detected
                 obfuscator = line[9:].split(b"(", 1)[0].strip()
-                if obfuscator != b"Unknown Obfuscator":
-                    obfuscators.add(obfuscator.decode("UTF8", errors="backslashreplace"))
+                obfuscators.add(obfuscator.decode("UTF8", errors="backslashreplace"))
                 break
             if line.startswith(b"More than one obfuscator detected"):
                 multiple = True
@@ -60,8 +75,11 @@ class DotnetDeobfuscator(ServiceBase):
             if multiple:
                 obfuscators.add(line.split(b"(", 1)[0].strip().decode("UTF8", errors="backslashreplace"))
 
+
         if not obfuscators:
             return
+
+        obfuscators = [obfuscator for obfuscator in obfuscators if obfuscator != "Unknown Obfuscator"]
 
         reported_obfuscators = []
         ignored_obfuscators = []
@@ -97,3 +115,7 @@ class DotnetDeobfuscator(ServiceBase):
                 )
             )
         request.add_extracted(name=f"{request.sha256}.de4dot", description="De4dot result", path=de4dot_output)
+
+        return
+
+
