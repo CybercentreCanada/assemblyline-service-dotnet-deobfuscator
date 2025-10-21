@@ -6,12 +6,7 @@ import subprocess
 
 from assemblyline_v4_service.common.base import ServiceBase
 from assemblyline_v4_service.common.request import ServiceRequest
-from assemblyline_v4_service.common.result import (
-    Heuristic,
-    Result,
-    ResultKeyValueSection,
-    ResultSection,
-)
+from assemblyline_v4_service.common.result import Heuristic, Result, ResultKeyValueSection, ResultSection
 
 
 class DotnetDeobfuscator(ServiceBase):
@@ -44,20 +39,20 @@ class DotnetDeobfuscator(ServiceBase):
         p = subprocess.run(popenargs, capture_output=True)
 
         if p.returncode != 0 or (
-            (b"Detected " in p.stdout or b"More than one obfuscator detected" in p.stdout) and
-            b"ERROR: Hmmmm... something didn't work. Try the latest version." in p.stdout):
+            (b"Detected " in p.stdout or b"More than one obfuscator detected" in p.stdout)
+            and b"ERROR: Hmmmm... something didn't work. Try the latest version." in p.stdout
+        ):
 
-            stdout_lines = b'\n'.join(p.stdout.splitlines()[-20:]).decode('UTF8', errors='backslashreplace')
-            stderr_lines = b'\n'.join(p.stderr.splitlines()[-80:]).decode('UTF8', errors='backslashreplace')
+            if self.is_dotnet(request.file_contents):
+                stdout_lines = b"\n".join(p.stdout.splitlines()[-20:]).decode("UTF8", errors="backslashreplace")
+                stderr_lines = b"\n".join(p.stderr.splitlines()[-80:]).decode("UTF8", errors="backslashreplace")
 
-            request.result.add_section(
-                ResultSection(
-                    "De4dot Error",
-                    body=(
-                        f"{stdout_lines}\n{stderr_lines}"
-                    ),
+                request.result.add_section(
+                    ResultSection(
+                        "De4dot Error",
+                        body=(f"{stdout_lines}\n{stderr_lines}"),
+                    )
                 )
-            )
 
             return
 
@@ -74,7 +69,6 @@ class DotnetDeobfuscator(ServiceBase):
                 continue
             if multiple:
                 obfuscators.add(line.split(b"(", 1)[0].strip().decode("UTF8", errors="backslashreplace"))
-
 
         if not obfuscators:
             return
@@ -118,4 +112,144 @@ class DotnetDeobfuscator(ServiceBase):
 
         return
 
+    def is_dotnet(self, file_contents):
+        MZ_OFFSET = 0x00
+        MZ_SIGNATURE_OFFSET = 0x00
+        MZ_PE_SIGNATURE_OFFSET = 0x3C
 
+        MZ_SIGNATURE = b"MZ"
+
+        PE_SIGNATURE_OFFSET = 0x00
+        PE_SIZEOFOPTIONALHEADER_OFFSET = 0x14
+        PE_OPTIONAL_HEADER_OFFSET = 0x18
+
+        PE_SIGNATURE = b"PE\x00\x00"
+
+        OPTIONAL_HEADER_MAGIC_OFFSET = 0x00
+
+        OPTIONAL_HEADER_PE32_SIZEOFIMAGE_OFFSET = 0x38
+        OPTIONAL_HEADER_PE32_NUMBER_OF_RVA_AND_SIZES_OFFSET = 0x5C
+        OPTIONAL_HEADER_PE32_CLR_RUNTIME_HEADER_RVA_OFFSET = 0xD0
+        OPTIONAL_HEADER_PE32_CLR_RUNTIME_HEADER_SIZE_OFFSET = 0xD4
+
+        OPTIONAL_HEADER_PE32PLUS_SIZEOFIMAGE_OFFSET = 0x38
+        OPTIONAL_HEADER_PE32PLUS_NUMBER_OF_RVA_AND_SIZES_OFFSET = 0x6C
+        OPTIONAL_HEADER_PE32PLUS_CLR_RUNTIME_HEADER_RVA_OFFSET = 0xE0
+        OPTIONAL_HEADER_PE32PLUS_CLR_RUNTIME_HEADER_SIZE_OFFSET = 0xE4
+
+        OPTIONAL_HEADER_MAGIC_PE32 = 0x010B
+        OPTIONAL_HEADER_MAGIC_PE32PLUS = 0x020B
+        OPTIONAL_HEADER_MIN_RVA_AND_SIZES_CLR_RUNTIME_HEADER = 0x000F
+
+        if (
+            len(file_contents) > MZ_OFFSET + MZ_PE_SIGNATURE_OFFSET + 4
+            and file_contents[MZ_OFFSET + MZ_SIGNATURE_OFFSET : MZ_OFFSET + MZ_SIGNATURE_OFFSET + 2] == MZ_SIGNATURE
+        ):
+            pe_offset = self.bytes_to_unsigned_int(file_contents, MZ_OFFSET + MZ_PE_SIGNATURE_OFFSET, 4)
+
+            if (
+                pe_offset > 0
+                and len(file_contents) > pe_offset + PE_SIZEOFOPTIONALHEADER_OFFSET + 2
+                and file_contents[pe_offset + PE_SIGNATURE_OFFSET : pe_offset + PE_SIGNATURE_OFFSET + 4] == PE_SIGNATURE
+            ):
+
+                size_of_optional_header = self.bytes_to_unsigned_int(
+                    file_contents, pe_offset + PE_SIZEOFOPTIONALHEADER_OFFSET, 2
+                )
+
+                if (
+                    size_of_optional_header > OPTIONAL_HEADER_MAGIC_OFFSET + 2
+                    and len(file_contents) > pe_offset + PE_OPTIONAL_HEADER_OFFSET + size_of_optional_header
+                ):
+                    optional_header_magic = self.bytes_to_unsigned_int(
+                        file_contents, pe_offset + PE_OPTIONAL_HEADER_OFFSET + OPTIONAL_HEADER_MAGIC_OFFSET, 2
+                    )
+
+                    if (
+                        optional_header_magic == OPTIONAL_HEADER_MAGIC_PE32
+                        and size_of_optional_header > OPTIONAL_HEADER_PE32_CLR_RUNTIME_HEADER_SIZE_OFFSET + 4
+                        and len(file_contents) > pe_offset + PE_OPTIONAL_HEADER_OFFSET + size_of_optional_header
+                        and self.bytes_to_unsigned_int(
+                            file_contents,
+                            pe_offset + PE_OPTIONAL_HEADER_OFFSET + OPTIONAL_HEADER_PE32_NUMBER_OF_RVA_AND_SIZES_OFFSET,
+                            4,
+                        )
+                        >= OPTIONAL_HEADER_MIN_RVA_AND_SIZES_CLR_RUNTIME_HEADER
+                        and 0
+                        < self.bytes_to_unsigned_int(
+                            file_contents,
+                            pe_offset + PE_OPTIONAL_HEADER_OFFSET + OPTIONAL_HEADER_PE32_SIZEOFIMAGE_OFFSET,
+                            4,
+                        )
+                        and 0
+                        < self.bytes_to_unsigned_int(
+                            file_contents,
+                            pe_offset + PE_OPTIONAL_HEADER_OFFSET + OPTIONAL_HEADER_PE32_CLR_RUNTIME_HEADER_RVA_OFFSET,
+                            4,
+                        )
+                        < self.bytes_to_unsigned_int(
+                            file_contents,
+                            pe_offset + PE_OPTIONAL_HEADER_OFFSET + OPTIONAL_HEADER_PE32_SIZEOFIMAGE_OFFSET,
+                            4,
+                        )
+                        and self.bytes_to_unsigned_int(
+                            file_contents,
+                            pe_offset + PE_OPTIONAL_HEADER_OFFSET + OPTIONAL_HEADER_PE32_CLR_RUNTIME_HEADER_SIZE_OFFSET,
+                            4,
+                        )
+                        > 0
+                    ):
+
+                        return True
+
+                    if (
+                        optional_header_magic == OPTIONAL_HEADER_MAGIC_PE32PLUS
+                        and size_of_optional_header > OPTIONAL_HEADER_PE32PLUS_CLR_RUNTIME_HEADER_SIZE_OFFSET + 4
+                        and len(file_contents) > pe_offset + PE_OPTIONAL_HEADER_OFFSET + size_of_optional_header
+                        and self.bytes_to_unsigned_int(
+                            file_contents,
+                            pe_offset
+                            + PE_OPTIONAL_HEADER_OFFSET
+                            + OPTIONAL_HEADER_PE32PLUS_NUMBER_OF_RVA_AND_SIZES_OFFSET,
+                            4,
+                        )
+                        >= OPTIONAL_HEADER_MIN_RVA_AND_SIZES_CLR_RUNTIME_HEADER
+                        and 0
+                        < self.bytes_to_unsigned_int(
+                            file_contents,
+                            pe_offset + PE_OPTIONAL_HEADER_OFFSET + OPTIONAL_HEADER_PE32PLUS_SIZEOFIMAGE_OFFSET,
+                            4,
+                        )
+                        and 0
+                        < self.bytes_to_unsigned_int(
+                            file_contents,
+                            pe_offset
+                            + PE_OPTIONAL_HEADER_OFFSET
+                            + OPTIONAL_HEADER_PE32PLUS_CLR_RUNTIME_HEADER_RVA_OFFSET,
+                            4,
+                        )
+                        < self.bytes_to_unsigned_int(
+                            file_contents,
+                            pe_offset + PE_OPTIONAL_HEADER_OFFSET + OPTIONAL_HEADER_PE32PLUS_SIZEOFIMAGE_OFFSET,
+                            4,
+                        )
+                        and self.bytes_to_unsigned_int(
+                            file_contents,
+                            pe_offset
+                            + PE_OPTIONAL_HEADER_OFFSET
+                            + OPTIONAL_HEADER_PE32PLUS_CLR_RUNTIME_HEADER_SIZE_OFFSET,
+                            4,
+                        )
+                        > 0
+                    ):
+
+                        return True
+
+        return False
+
+    def bytes_to_unsigned_int(self, _bytes, start_offset, _len):
+        return (
+            int.from_bytes(_bytes[start_offset : start_offset + _len], "little", signed=False)
+            if len(_bytes) > start_offset + _len
+            else -1
+        )
