@@ -12,9 +12,17 @@ RUN git clone https://github.com/CybercentreCanada/DotKill-Unpacker && \
     cd DotKill-Unpacker && \
     dotnet publish -c Release -f net8.0 --os linux --self-contained
 
+FROM alpine:latest AS reactorslayer-build
+WORKDIR /reactorslayer
+RUN wget https://github.com/otavepto/NETReactorSlayer/releases/latest/download/NETReactorSlayer-linux-x64.zip -O /reactorslayer/NETReactorSlayer-linux-x64.zip && \
+    unzip /reactorslayer/NETReactorSlayer-linux-x64.zip -d /reactorslayer && \
+    chmod +x /reactorslayer/NETReactorSlayer-linux-x64/* && \
+    rm /reactorslayer/NETReactorSlayer-linux-x64.zip
+
 FROM cccs/assemblyline-v4-service-base:$branch
 COPY --from=de4dot-build /de4dot/de4dotEx/Release/net8.0/linux-x64 /opt/de4dot
 COPY --from=dotkill-build /dotkill/DotKill-Unpacker/DotKill/bin/Release/net8.0/linux-x64/publish /opt/dotkill
+COPY --from=reactorslayer-build /reactorslayer/NETReactorSlayer-linux-x64 /opt/reactorslayer
 
 # Python path to the service class from your service directory
 ENV SERVICE_PATH=dotnet_deobfuscator.dotnet_deobfuscator.DotnetDeobfuscator

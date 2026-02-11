@@ -1,7 +1,6 @@
-"""This Assemblyline service tries to deobfuscate .Net dlls."""
-
 import os
 import re
+import shutil
 import subprocess
 
 from assemblyline_v4_service.common.base import ServiceBase
@@ -10,8 +9,6 @@ from assemblyline_v4_service.common.result import Heuristic, Result, ResultKeyVa
 
 
 class DotnetDeobfuscator(ServiceBase):
-    """This Assemblyline service tries to deobfuscate .Net dlls."""
-
     def execute(self, request: ServiceRequest):
         request.result = Result()
 
@@ -34,6 +31,25 @@ class DotnetDeobfuscator(ServiceBase):
                         f"{request.file_path}_dotkill", f"{request.file_path}_dotkill", "DotKill deobfuscation"
                     )
 
+        # Try with reactorslayer
+        popenargs = ["/opt/reactorslayer/NETReactorSlayer.CLI", "--no-pause", "True", request.file_path]
+        p = subprocess.run(popenargs, capture_output=True)
+        if p.returncode == 0:
+            rs_section = ResultSection("NET Reactor Slayer result", parent=request.result)
+            for line in p.stdout.splitlines():
+                if line.strip().startswith(b"["):
+                    rs_section.add_line(line.decode("UTF8", errors="backslashreplace").strip())
+            if os.path.exists(f"{request.file_path}_Slayed"):
+                slayed_dest = os.path.join(self.working_directory, os.path.basename(f"{request.file_path}_Slayed"))
+                shutil.move(f"{request.file_path}_Slayed", slayed_dest)
+                request.add_supplementary(slayed_dest, "Slayed", "NET Reactor Slayer deobfuscation")
+            else:
+                rs_section.auto_collapse = True
+        # In case something went wrong with reactorslayer, make sure to clean up any _Slayed file that may
+        # have been created to leave the service in a clean state for the next file
+        if os.path.exists(f"{request.file_path}_Slayed"):
+            os.remove(f"{request.file_path}_Slayed")
+
         de4dot_output = os.path.join(self.working_directory, "de4dotoutput")
         popenargs = ["/opt/de4dot/de4dot", request.file_path, "-o", de4dot_output]
         p = subprocess.run(popenargs, capture_output=True)
@@ -42,18 +58,10 @@ class DotnetDeobfuscator(ServiceBase):
             (b"Detected " in p.stdout or b"More than one obfuscator detected" in p.stdout)
             and b"ERROR: Hmmmm... something didn't work. Try the latest version." in p.stdout
         ):
-
             if self.is_dotnet(request.file_contents):
                 stdout_lines = b"\n".join(p.stdout.splitlines()[-20:]).decode("UTF8", errors="backslashreplace")
                 stderr_lines = b"\n".join(p.stderr.splitlines()[-80:]).decode("UTF8", errors="backslashreplace")
-
-                request.result.add_section(
-                    ResultSection(
-                        "De4dot Error",
-                        body=(f"{stdout_lines}\n{stderr_lines}"),
-                    )
-                )
-
+                request.result.add_section(ResultSection("De4dot Error", body=(f"{stdout_lines}\n{stderr_lines}")))
             return
 
         obfuscators = set()
@@ -152,7 +160,6 @@ class DotnetDeobfuscator(ServiceBase):
                 and len(file_contents) > pe_offset + PE_SIZEOFOPTIONALHEADER_OFFSET + 2
                 and file_contents[pe_offset + PE_SIGNATURE_OFFSET : pe_offset + PE_SIGNATURE_OFFSET + 4] == PE_SIGNATURE
             ):
-
                 size_of_optional_header = self.bytes_to_unsigned_int(
                     file_contents, pe_offset + PE_SIZEOFOPTIONALHEADER_OFFSET, 2
                 )
@@ -199,7 +206,6 @@ class DotnetDeobfuscator(ServiceBase):
                         )
                         > 0
                     ):
-
                         return True
 
                     if (
@@ -242,7 +248,6 @@ class DotnetDeobfuscator(ServiceBase):
                         )
                         > 0
                     ):
-
                         return True
 
         return False
