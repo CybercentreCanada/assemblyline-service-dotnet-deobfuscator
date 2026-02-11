@@ -42,7 +42,7 @@ class DotnetDeobfuscator(ServiceBase):
             if os.path.exists(f"{request.file_path}_Slayed"):
                 slayed_dest = os.path.join(self.working_directory, os.path.basename(f"{request.file_path}_Slayed"))
                 shutil.move(f"{request.file_path}_Slayed", slayed_dest)
-                request.add_supplementary(slayed_dest, "Slayed", "NET Reactor Slayer deobfuscation")
+                request.add_extracted(slayed_dest, "Slayed", "NET Reactor Slayer deobfuscation")
             else:
                 rs_section.auto_collapse = True
         # In case something went wrong with reactorslayer, make sure to clean up any _Slayed file that may
