@@ -34,17 +34,15 @@ class DotnetDeobfuscator(ServiceBase):
         # Try with reactorslayer
         popenargs = ["/opt/reactorslayer/NETReactorSlayer.CLI", "--no-pause", "True", request.file_path]
         p = subprocess.run(popenargs, capture_output=True)
-        if p.returncode == 0:
-            rs_section = ResultSection("NET Reactor Slayer result", parent=request.result)
+        if p.returncode == 0 and os.path.exists(f"{request.file_path}_Slayed"):
+            rs_section = ResultSection("NET Reactor Slayer result")
             for line in p.stdout.splitlines():
                 if line.strip().startswith(b"["):
                     rs_section.add_line(line.decode("UTF8", errors="backslashreplace").strip())
-            if os.path.exists(f"{request.file_path}_Slayed"):
-                slayed_dest = os.path.join(self.working_directory, os.path.basename(f"{request.file_path}_Slayed"))
-                shutil.move(f"{request.file_path}_Slayed", slayed_dest)
-                request.add_extracted(slayed_dest, "Slayed", "NET Reactor Slayer deobfuscation")
-            else:
-                rs_section.auto_collapse = True
+            slayed_dest = os.path.join(self.working_directory, os.path.basename(f"{request.file_path}_Slayed"))
+            shutil.move(f"{request.file_path}_Slayed", slayed_dest)
+            request.add_extracted(slayed_dest, "Slayed", "NET Reactor Slayer deobfuscation")
+            request.result.add_section(rs_section)
         # In case something went wrong with reactorslayer, make sure to clean up any _Slayed file that may
         # have been created to leave the service in a clean state for the next file
         if os.path.exists(f"{request.file_path}_Slayed"):
