@@ -19,7 +19,7 @@ RUN wget https://github.com/otavepto/NETReactorSlayer/releases/latest/download/N
     chmod +x /reactorslayer/NETReactorSlayer-linux-x64/* && \
     rm /reactorslayer/NETReactorSlayer-linux-x64.zip
 
-FROM cccs/assemblyline-v4-service-base:$branch
+FROM cccs/assemblyline-rust-service-base:$branch
 COPY --from=de4dot-build /de4dot/de4dotEx/Release/net8.0/linux-x64 /opt/de4dot
 COPY --from=dotkill-build /dotkill/DotKill-Unpacker/DotKill/bin/Release/net8.0/linux-x64/publish /opt/dotkill
 COPY --from=reactorslayer-build /reactorslayer/NETReactorSlayer-linux-x64 /opt/reactorslayer
