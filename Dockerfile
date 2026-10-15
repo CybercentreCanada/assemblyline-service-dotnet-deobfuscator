@@ -2,7 +2,7 @@ ARG branch=latest
 
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS de4dot-build
 WORKDIR /de4dot
-RUN git clone https://github.com/GDATAAdvancedAnalytics/de4dotEx && \
+RUN git clone -b 3.9.0 https://github.com/GDATAAdvancedAnalytics/de4dotEx.git && \
     cd de4dotEx && \
     dotnet publish -c Release -f net8.0 -o publish-net8.0 --os linux --self-contained de4dot
 
@@ -34,7 +34,7 @@ RUN apt-get update && \
     apt-get upgrade -y && \
     # Add the Linux Software Repository for Microsoft Products
     apt-get install wget -y --no-install-recommends && \
-    wget https://packages.microsoft.com/config/debian/11/packages-microsoft-prod.deb -O packages-microsoft-prod.deb && \
+    wget https://packages.microsoft.com/config/debian/13/packages-microsoft-prod.deb -O packages-microsoft-prod.deb && \
     dpkg -i packages-microsoft-prod.deb && \
     rm packages-microsoft-prod.deb && \
     apt-get update && \
